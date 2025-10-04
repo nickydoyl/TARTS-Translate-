@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Chat App</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* --- Visual Indicator CSS --- */
+        #startButton.active {
+            background-color: #28a745; /* Green when active */
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); /* Glowing effect */
+            animation: pulse 1s infinite alternate; /* Simple pulsing animation */
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.03); }
+        }
+        /* --- End Visual Indicator CSS --- */
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #555;
+            min-height: 20px; /* To prevent layout shift */
+        }
+
+        #conversation {
+            margin-top: 20px;
+            text-align: left;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .user-message, .ai-message {
+            padding: 8px 12px;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #e0f7fa;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .ai-message {
+            background-color: #f0f0f0;
+            margin-right: auto;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Chat</h1>
+        <button id="startButton">Start Talking</button>
+        <button id="stopButton" disabled>Stop Talking</button>
+        <p id="status">Press "Start Talking" to begin.</p>
+        <div id="conversation">
+            <!-- Conversation turns will appear here -->
+        </div>
+    </div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const statusDisplay = document.getElementById('status');
+        const conversationDiv = document.getElementById('conversation');
+
+        // **IMPORTANT: API Key Placement**
+        // Your API key MUST be enclosed in double quotes as a string.
+        const API_KEY = "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"; // <-- Corrected: API Key INSIDE DOUBLE QUOTES
+
+        let recognition; // For Web Speech API (speech-to-text)
+        let isSpeaking = false; // To track if recognition is active
+
+        function addMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add(sender === 'user' ? 'user-message' : 'ai-message');
+            messageDiv.textContent = text;
+            conversationDiv.appendChild(messageDiv);
+            conversationDiv.scrollTop = conversationDiv.scrollHeight;
+        }
+
+        // Initialize Web Speech API
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isSpeaking = true;
+                startButton.classList.add('active'); // Add active class for visual
+                statusDisplay.textContent = 'Listening... Speak now.';
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                addMessage('user', `You: ${transcript}`);
+                statusDisplay.textContent = 'Sending to AI...';
+                sendTextToAPI(transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                let errorMessage = 'Error during speech recognition.';
+                if (event.error === 'not-allowed') {
+                    errorMessage += ' Microphone permission denied. Please allow microphone access.';
+                } else if (event.error === 'no-speech') {
+                    errorMessage += ' No speech detected. Please try again.';
+                } else if (event.error === 'network') {
+                    errorMessage += ' Network error. Check internet connection.';
+                }
+                statusDisplay.textContent = errorMessage;
+                resetState();
+            };
+
+            recognition.onend = () => {
+                // This fires when recognition stops naturally (e.g., after detecting a pause).
+                // If it's not being explicitly stopped by the button, it might just be done listening.
+                if (isSpeaking) { // Only reset if we were actively speaking
+                    statusDisplay.textContent = 'Processing or ready for next input...';
+                    resetState(); // Reset button states, but don't clear status immediately
+                }
+            };
+        } else {
+            statusDisplay.textContent = 'Web Speech API is not supported in this browser. Please use Chrome.';
+            startButton.disabled = true;
+        }
+
+        startButton.addEventListener('click', () => {
+            if (recognition) {
+                try {
+                    // Prevent starting recognition if it's already active to avoid errors
+                    if (!isSpeaking) {
+                        recognition.start();
+                    }
+                } catch (error) {
+                    console.error("Error starting speech recognition:", error);
+                    statusDisplay.textContent = 'Could not start microphone. Ensure permissions are granted and try again.';
+                    resetState();
+                }
+            }
+        });
+
+        stopButton.addEventListener('click', () => {
+            if (recognition && isSpeaking) {
+                recognition.stop();
+                isSpeaking = false;
+                statusDisplay.textContent = 'Conversation stopped.';
+                resetState();
+            }
+        });
+
+        function resetState() {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            startButton.classList.remove('active'); // Remove active class
+            isSpeaking = false;
+            // Optionally, clear status after a brief delay if no new interaction starts
+            setTimeout(() => {
+                // Only reset if no new speech is active and no error/sending message
+                if (!isSpeaking && !statusDisplay.textContent.startsWith('Error') && !statusDisplay.textContent.startsWith('Sending')) {
+                    statusDisplay.textContent = 'Press "Start Talking" to begin.';
+                }
+            }, 3000);
+        }
+
+        async function sendTextToAPI(text) {
+            statusDisplay.textContent = 'Sending to AI...';
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-3.5-turbo",
+                        messages: [{ role: "user", content: text }],
+                        max_tokens: 150
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} - ${errorData.message || response.statusText}`);
+                }
+
+                const data = await response.json();
+                const aiResponse = data.choices[0].message.content;
+                addMessage('ai', `AI: ${aiResponse}`);
+                statusDisplay.textContent = 'AI responded. Press "Start Talking" for next input.';
+            } catch (error) {
+                console.error('Error calling API:', error);
+                statusDisplay.textContent = `Error: ${error.message}. Check API key, internet connection, or API usage limits.`;
+            } finally {
+                resetState(); // Reset buttons after API call completes (or errors)
+            }
+        }
+
+        // Initial state on load
+        resetState();
+        if (!('webkitSpeechRecognition' in window)) {
+            statusDisplay.textContent = 'Web Speech API is not supported in this browser. Please use Google Chrome for full functionality.';
+        }
+    </script>
+</body>
+</html>
