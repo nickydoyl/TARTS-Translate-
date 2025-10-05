@@ -1,10 +1,9 @@
 // CONFIGURATION
-const OPENAI_API_KEY = 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; // Replace with your key
+const OPENAI_API_KEY = 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; // Replace with your own key
 const MODEL = "gpt-4o-mini";
 
 // ELEMENTS
-const startButton = document.getElementById("startButton");
-const stopButton = document.getElementById("stopButton");
+const toggleButton = document.getElementById("toggleButton");
 const visualizer = document.getElementById("visualizer");
 const ctx = visualizer.getContext("2d");
 const statusDiv = document.getElementById("status");
@@ -13,8 +12,11 @@ const outputDiv = document.getElementById("output");
 let mediaRecorder, mediaStream, audioContext, analyser, dataArray;
 let listening = false;
 
-startButton.onclick = startConversation;
-stopButton.onclick = stopConversation;
+// Toggle Start/Stop
+toggleButton.onclick = () => {
+  if (listening) stopConversation();
+  else startConversation();
+};
 
 // MAIN
 async function startConversation() {
@@ -23,8 +25,7 @@ async function startConversation() {
     return;
   }
 
-  startButton.disabled = true;
-  stopButton.disabled = false;
+  toggleButton.textContent = "Stop";
   statusDiv.textContent = "Listening...";
   listening = true;
   playBeep();
@@ -147,8 +148,7 @@ function speak(text) {
 
 function stopConversation() {
   listening = false;
-  startButton.disabled = false;
-  stopButton.disabled = true;
+  toggleButton.textContent = "Start";
   statusDiv.textContent = "Stopped.";
   if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
   if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
