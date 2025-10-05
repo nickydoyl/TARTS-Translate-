@@ -1,39 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenAI Realtime Voice</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Translate 🎙️</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1>🎙️ Realtime AI Voice</h1>
-
-    <div class="button-container">
-      <button id="toggleButton">
-        <svg class="button-icon" id="buttonIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-        </svg>
-      </button>
-      <div id="status">Tap to start conversation</div>
-    </div>
-
-    <div class="visualizer-container" id="visualizerContainer">
-      <div class="level-label">Your Voice:</div>
-      <div class="level-bar">
-        <div class="level-bar-fill" id="inputLevel"></div>
-      </div>
-      <div class="level-label">AI Speaking:</div>
-      <div class="level-bar">
-        <div class="level-bar-fill" id="outputLevel"></div>
-      </div>
-    </div>
-
-    <div id="output" class="conversation-box"></div>
+    <h1>🎧 Live Translate</h1>
+    <button id="recordButton">🎤 Start / Stop</button>
+    <p id="status">Press to start listening...</p>
+    <div id="output"></div>
   </div>
-
-  <script type="module" src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
