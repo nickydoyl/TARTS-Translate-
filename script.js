@@ -1,5 +1,5 @@
 // CONFIGURATION - Replace with your OpenAI API Key
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = "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";
 
 // ELEMENTS
 const toggleButton = document.getElementById("toggleButton");
