@@ -8,14 +8,12 @@ body {
   height: 100vh;
   margin: 0;
 }
-
 .container {
   text-align: center;
   background: rgba(255, 255, 255, 0.1);
   padding: 20px;
   border-radius: 15px;
 }
-
 button {
   background-color: #28a745;
   border: none;
@@ -25,7 +23,15 @@ button {
   cursor: pointer;
   font-size: 18px;
 }
-
 button:hover {
   background-color: #218838;
+}
+pre {
+  text-align: left;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 15px;
 }
