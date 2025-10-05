@@ -1,5 +1,5 @@
 // CONFIGURATION
-const OPENAI_API_KEY = "sk-YOUR_API_KEY_HERE"; // Replace with your key
+const OPENAI_API_KEY = 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; // Replace with your key
 const MODEL = "gpt-4o-mini";
 
 // ELEMENTS
