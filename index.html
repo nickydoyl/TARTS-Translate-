@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Translate 🎙️</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Realtime Voice Chat</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>🎧 Live Translate</h1>
-    <button id="recordButton">🎤 Start / Stop</button>
-    <p id="status">Press to start listening...</p>
-    <pre id="output"></pre>
+  <div class="wrapper">
+    <div class="mic-container">
+      <button id="micButton" class="mic idle"></button>
+      <p id="status">Tap the mic to start talking</p>
+    </div>
   </div>
   <script src="script.js"></script>
 </body>

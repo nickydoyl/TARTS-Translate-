@@ -1,54 +1,62 @@
-const button = document.getElementById("recordButton");
-const status = document.getElementById("status");
-const output = document.getElementById("output");
+const micButton = document.getElementById("micButton");
+const statusText = document.getElementById("status");
+let ws, mediaRecorder;
+let audioPlayer = new Audio();
 
-let recorder, chunks = [], recording = false;
+async function startRealtime() {
+  try {
+    ws = new WebSocket("wss://lively-moon-5a49.nickydoyl.workers.dev");
+    ws.binaryType = "arraybuffer";
 
-button.addEventListener("click", async () => {
-  if (!recording) {
-    recording = true;
-    status.textContent = "🎙️ Recording...";
-    chunks = [];
+    ws.onopen = async () => {
+      statusText.textContent = "🎙️ Connected. Speak now...";
+      micButton.classList.remove("idle");
+      micButton.classList.add("listening");
 
-    try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recorder = new MediaRecorder(stream);
-
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.onstop = async () => {
-        status.textContent = "⏳ Processing audio...";
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const arrayBuffer = await blob.arrayBuffer();
-        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
-        try {
-          const response = await fetch("https://tight-fire-bddf.nickydoyl.workers.dev", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "gpt-4o-mini-transcribe",
-              input: base64Audio
-            })
-          });
-
-          const data = await response.json();
-          output.textContent = JSON.stringify(data, null, 2);
-          status.textContent = "✅ Done";
-        } catch (err) {
-          status.textContent = "❌ API Error";
-          output.textContent = err.message;
+      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm; codecs=opus" });
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          event.data.arrayBuffer().then(buf => ws.send(buf));
         }
       };
+      mediaRecorder.start(250); // send chunks every 250ms
+    };
 
-      recorder.start();
-      status.textContent = "🎤 Recording... Tap again to stop.";
-    } catch (err) {
-      status.textContent = "❌ Microphone access denied.";
-      console.error(err);
-    }
+    ws.onmessage = (event) => {
+      const blob = new Blob([event.data], { type: "audio/mp3" });
+      const url = URL.createObjectURL(blob);
+      audioPlayer.src = url;
+      audioPlayer.play().catch(console.error);
+    };
+
+    ws.onclose = () => {
+      micButton.classList.remove("listening");
+      micButton.classList.add("idle");
+      statusText.textContent = "🔇 Disconnected.";
+    };
+  } catch (err) {
+    console.error("Error starting realtime:", err);
+    statusText.textContent = "❌ Failed to start: " + err.message;
+  }
+}
+
+function stopRealtime() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+  micButton.classList.remove("listening");
+  micButton.classList.add("idle");
+  statusText.textContent = "🛑 Stopped.";
+}
+
+micButton.addEventListener("click", () => {
+  if (micButton.classList.contains("listening")) {
+    stopRealtime();
   } else {
-    recording = false;
-    status.textContent = "🛑 Stopped.";
-    recorder.stop();
+    startRealtime();
   }
 });
