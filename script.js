@@ -1,36 +1,25 @@
-// ===========================
 // CONFIGURATION
-// ===========================
-const OPENAI_API_KEY = "sk-YOUR_API_KEY_HERE";  // Replace with your own API key
-const MODEL = "gpt-4o-mini"; // Change to your model
+const OPENAI_API_KEY = "sk-YOUR_API_KEY_HERE"; // Replace with your key
+const MODEL = "gpt-4o-mini";
 
-// ===========================
-// DOM ELEMENTS
-// ===========================
+// ELEMENTS
 const startButton = document.getElementById("startButton");
 const stopButton = document.getElementById("stopButton");
+const visualizer = document.getElementById("visualizer");
+const ctx = visualizer.getContext("2d");
 const statusDiv = document.getElementById("status");
 const outputDiv = document.getElementById("output");
 
-// ===========================
-// AUDIO + STATE
-// ===========================
-let mediaRecorder, mediaStream;
-let chunks = [];
+let mediaRecorder, mediaStream, audioContext, analyser, dataArray;
 let listening = false;
 
-// ===========================
-// BUTTON EVENTS
-// ===========================
 startButton.onclick = startConversation;
 stopButton.onclick = stopConversation;
 
-// ===========================
-// MAIN FUNCTIONS
-// ===========================
+// MAIN
 async function startConversation() {
   if (!OPENAI_API_KEY.startsWith("sk-")) {
-    alert("Please insert your OpenAI API key in script.js");
+    alert("Please add your OpenAI API key in script.js");
     return;
   }
 
@@ -38,22 +27,69 @@ async function startConversation() {
   stopButton.disabled = false;
   statusDiv.textContent = "Listening...";
   listening = true;
+  playBeep();
 
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: "audio/webm" });
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+    source.connect(analyser);
+    visualize();
 
+    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: "audio/webm" });
     mediaRecorder.ondataavailable = async e => {
       if (e.data.size > 0 && listening) await processChunk(e.data);
     };
-
-    mediaRecorder.start(1000); // every 1s send chunk
+    mediaRecorder.start(1000);
   } catch (err) {
     console.error(err);
     statusDiv.textContent = "Microphone access denied.";
   }
 }
 
+function playBeep() {
+  const beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = beepCtx.createOscillator();
+  oscillator.type = "sine";
+  oscillator.frequency.value = 880;
+  oscillator.connect(beepCtx.destination);
+  oscillator.start();
+  oscillator.stop(beepCtx.currentTime + 0.15);
+}
+
+function visualize() {
+  if (!analyser || !listening) return;
+  requestAnimationFrame(visualize);
+  analyser.getByteTimeDomainData(dataArray);
+
+  const style = getComputedStyle(document.body);
+  const bg = style.getPropertyValue('--bg-light') || '#f5f5f7';
+  const accent = style.getPropertyValue('--accent') || '#007aff';
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, visualizer.width, visualizer.height);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = accent.trim();
+  ctx.beginPath();
+
+  const sliceWidth = visualizer.width / dataArray.length;
+  let x = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * visualizer.height) / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.lineTo(visualizer.width, visualizer.height / 2);
+  ctx.stroke();
+}
+
+// PROCESS AUDIO
 async function processChunk(blob) {
   const formData = new FormData();
   formData.append("file", blob, "speech.webm");
@@ -63,7 +99,7 @@ async function processChunk(blob) {
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: formData
+      body: formData,
     });
 
     const data = await response.json();
@@ -74,10 +110,9 @@ async function processChunk(blob) {
     const reply = await askAI(text);
     addMessage("ai", reply);
     speak(reply);
-
   } catch (error) {
     console.error(error);
-    statusDiv.textContent = "Error during transcription.";
+    addMessage("ai", "⚠️ Error during transcription or connection.");
   }
 }
 
@@ -91,7 +126,7 @@ async function askAI(prompt) {
     body: JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: "You are an AI that automatically translates and responds conversationally in the same language you hear." },
+        { role: "system", content: "You are a friendly conversational AI. Translate and respond naturally." },
         { role: "user", content: prompt }
       ],
       temperature: 0.7,
@@ -104,7 +139,7 @@ async function askAI(prompt) {
 
 function speak(text) {
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "auto"; // browser decides language
+  utter.lang = "auto";
   utter.rate = 1.0;
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
