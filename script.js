@@ -31,7 +31,7 @@ const WAVE_ICON = `<g class="wave-bars">
 
 // Toggle button handler
 toggleButton.onclick = () => {
-  if (isConnected) 
+  if (isConnected) {
     disconnect();
   } else {
     connect();
