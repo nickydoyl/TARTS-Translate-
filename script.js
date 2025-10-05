@@ -31,7 +31,7 @@ const WAVE_ICON = `<g class="wave-bars">
 
 // Toggle button handler
 toggleButton.onclick = () => {
-  if (isConnected) {
+  if (isConnected) 
     disconnect();
   } else {
     connect();
@@ -40,7 +40,7 @@ toggleButton.onclick = () => {
 
 // Connect to OpenAI Realtime API
 async function connect() {
-  if (!OPENAI_API_KEY || OPENAI_API_KEY === "YOUR_API_KEY_HERE") {
+  if (!OPENAI_API_KEY || OPENAI_API_KEY === "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") {
     alert("Please add your OpenAI API key in script.js");
     return;
   }
