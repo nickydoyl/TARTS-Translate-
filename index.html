@@ -3,21 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Voice</title>
+  <title>Voice Debug</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app">
-    <h1 class="title">Live Voice</h1>
+    <h1 class="title">🎙️ Voice Chat Debug</h1>
     <div class="mic-wrap">
-      <button id="mic" class="mic idle" aria-label="Start conversation"></button>
+      <button id="mic" class="mic idle" aria-label="Toggle microphone"></button>
       <div id="ring" class="ring"></div>
     </div>
-    <div id="status" class="status">Tap to start. Allow microphone access.</div>
-    <details class="logwrap">
-      <summary>Log</summary>
-      <pre id="log" class="log"></pre>
-    </details>
+    <div id="status" class="status">Tap mic to start. Allow microphone access.</div>
+    <pre id="log" class="log"></pre>
   </main>
   <script src="script.js"></script>
 </body>

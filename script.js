@@ -1,107 +1,102 @@
-// Frontend for full-duplex voice via Cloudflare Worker -> OpenAI Realtime
-const WORKER_WS = "wss://square-waterfall-2c5d.nickydoyl.workers.dev"; // your Worker URL (root)
+const WORKER_WS = "wss://square-waterfall-2c5d.nickydoyl.workers.dev"; // Worker endpoint
 
 const micBtn = document.getElementById("mic");
 const statusEl = document.getElementById("status");
 const logEl = document.getElementById("log");
 
 let ws = null;
-let mediaRecorder = null;
 let micStream = null;
-
-// audio element for playback
+let mediaRecorder = null;
 const speaker = new Audio();
 speaker.autoplay = true;
 
-function log(...args) {
-  const line = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
-  logEl.textContent += line + "\n";
+function log(...args){
+  const msg = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+  const line = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  logEl.textContent += line;
   logEl.scrollTop = logEl.scrollHeight;
+  console.log(msg);
 }
 
-function setStatus(t) { statusEl.textContent = t; }
+function setStatus(t){ statusEl.textContent = t; }
 
-async function startConversation() {
-  try {
-    setStatus("Connecting…");
+async function startConversation(){
+  log("---- Starting Conversation ----");
+  setStatus("Connecting to worker...");
+  try{
     ws = new WebSocket(WORKER_WS);
     ws.binaryType = "arraybuffer";
 
     ws.onopen = async () => {
-      micBtn.classList.add("listening");
-      setStatus("🎙️ Connected. Grant mic permission…");
-      try {
+      log("[WS] Connected");
+      setStatus("Connected. Requesting microphone...");
+      try{
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err) {
-        setStatus("❌ Microphone permission denied");
-        log("mic error:", err);
-        stopConversation();
-        return;
+        log("[Mic] Permission granted, stream active");
+      }catch(err){
+        log("[Mic] Error: " + err.message);
+        setStatus("Microphone error");
+        return stopConversation();
       }
 
-      setStatus("Listening…");
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : undefined;
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
+      try{
+        mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+        log("[Recorder] Created successfully with " + (mime || "default") + " format");
+      }catch(err){
+        log("[Recorder] Failed: " + err.message);
+        setStatus("Recorder not supported");
+        return stopConversation();
+      }
 
-      mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
       mediaRecorder.ondataavailable = (evt) => {
-        if (evt.data && evt.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-          evt.data.arrayBuffer().then(buf => ws.send(buf)).catch(err => log("send err:", err));
+        if(evt.data.size > 0 && ws.readyState === WebSocket.OPEN){
+          evt.data.arrayBuffer().then(buf => ws.send(buf)).catch(e => log("[Send] Error: " + e.message));
         }
       };
-      mediaRecorder.start(200); // send chunks every 200ms
+      mediaRecorder.start(200);
+      micBtn.classList.add("listening");
+      setStatus("🎧 Listening...");
     };
 
     ws.onmessage = (evt) => {
-      if (evt.data instanceof ArrayBuffer) {
-        // Treat as audio (mp3/opus) and play
+      if(evt.data instanceof ArrayBuffer){
         const blob = new Blob([evt.data], { type: "audio/mpeg" });
-        const url = URL.createObjectURL(blob);
-        speaker.src = url;
-      } else {
-        try {
-          const msg = JSON.parse(evt.data);
-          log("[json]", msg);
-        } catch {
-          log("[text]", evt.data);
-        }
+        speaker.src = URL.createObjectURL(blob);
+        log("[WS] Received audio data (" + blob.size + " bytes)");
+      }else{
+        log("[WS] Message: " + evt.data);
       }
     };
 
-    ws.onerror = (err) => {
-      log("ws error:", err);
-      setStatus("⚠️ WebSocket error");
-    };
+    ws.onerror = (e) => { log("[WS] Error: " + e.message); setStatus("WebSocket error"); };
+    ws.onclose = (e) => { log("[WS] Closed, code " + e.code); setStatus("Disconnected"); micBtn.classList.remove("listening"); cleanup(); };
 
-    ws.onclose = () => {
-      setStatus("🔌 Disconnected");
-      micBtn.classList.remove("listening");
-      cleanupMedia();
-    };
-  } catch (e) {
-    log("start err:", e);
-    setStatus("❌ Failed to start");
-    stopConversation();
+  }catch(err){
+    log("[Fatal] " + err.message);
+    setStatus("Connection failed");
   }
 }
 
-function cleanupMedia() {
-  try { if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); } catch {}
-  mediaRecorder = null;
-  try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch {}
-  micStream = null;
+function stopConversation(){
+  log("---- Stopping ----");
+  if(mediaRecorder && mediaRecorder.state !== "inactive"){ mediaRecorder.stop(); }
+  if(micStream){ micStream.getTracks().forEach(t => t.stop()); }
+  if(ws && ws.readyState === WebSocket.OPEN){ ws.close(); }
+  micBtn.classList.remove("listening");
+  setStatus("Stopped");
 }
 
-function stopConversation() {
-  cleanupMedia();
-  try { if (ws && ws.readyState === WebSocket.OPEN) ws.close(); } catch {}
-  ws = null;
-  micBtn.classList.remove("listening");
-  setStatus("🛑 Stopped");
+function cleanup(){
+  try{ if(mediaRecorder) mediaRecorder.stop(); }catch{}
+  try{ if(micStream) micStream.getTracks().forEach(t => t.stop()); }catch{}
+  ws = null; mediaRecorder = null; micStream = null;
 }
 
 micBtn.addEventListener("click", () => {
-  if (micBtn.classList.contains("listening")) stopConversation();
+  if(micBtn.classList.contains("listening")) stopConversation();
   else startConversation();
 });
+
+window.addEventListener("error", (e)=>log("[WindowError] " + e.message));
+log("Ready. Click mic to begin.");
