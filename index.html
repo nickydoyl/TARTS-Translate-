@@ -1,21 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice Debug</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voice Chat</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="app">
-    <h1 class="title">🎙️ Voice Chat Debug</h1>
-    <div class="mic-wrap">
-      <button id="mic" class="mic idle" aria-label="Toggle microphone"></button>
-      <div id="ring" class="ring"></div>
+  <main class="wrap">
+    <div class="hud">
+      <div id="status">Tap to talk</div>
     </div>
-    <div id="status" class="status">Tap mic to start. Allow microphone access.</div>
-    <pre id="log" class="log"></pre>
+
+    <button id="mic" class="mic" aria-label="Start voice chat">
+      <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+        <path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2Zm-5 7a7.97 7.97 0 0 1-5-1.7V19a1 1 0 1 1-2 0v-3.43a1 1 0 0 1 .62-.92A9 9 0 0 0 12 20a9 9 0 0 0 6.38-2.35 1 1 0 0 1 .62.92V19a1 1 0 1 1-2 0v-1.7A7.97 7.97 0 0 1 12 18Z"/>
+      </svg>
+      <div class="ring"></div>
+    </button>
+
+    <details class="diag">
+      <summary>Diagnostics</summary>
+      <pre id="log"></pre>
+    </details>
   </main>
+
   <script src="script.js"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
-const WORKER_WS = "wss://square-waterfall-2c5d.nickydoyl.workers.dev"; // Worker endpoint
+// Frontend: ChatGPT-like voice chat (press to start/stop) using your Cloudflare Worker
+const WORKER_WS = "wss://noisy-glade-a9eb.nickydoyl.workers.dev"; // <— your worker URL
 
 const micBtn = document.getElementById("mic");
 const statusEl = document.getElementById("status");
@@ -7,96 +8,100 @@ const logEl = document.getElementById("log");
 let ws = null;
 let micStream = null;
 let mediaRecorder = null;
+
+// Simple speaker
 const speaker = new Audio();
 speaker.autoplay = true;
 
 function log(...args){
-  const msg = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
-  const line = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-  logEl.textContent += line;
+  const line = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+  logEl.textContent += `[${new Date().toLocaleTimeString()}] ${line}\n`;
   logEl.scrollTop = logEl.scrollHeight;
-  console.log(msg);
+  console.log(...args);
 }
-
 function setStatus(t){ statusEl.textContent = t; }
 
-async function startConversation(){
-  log("---- Starting Conversation ----");
-  setStatus("Connecting to worker...");
+async function start(){
   try{
+    setStatus("Connecting…");
+    log("Opening WebSocket to", WORKER_WS);
     ws = new WebSocket(WORKER_WS);
     ws.binaryType = "arraybuffer";
 
     ws.onopen = async () => {
-      log("[WS] Connected");
-      setStatus("Connected. Requesting microphone...");
+      log("WS connected");
+      // get mic
       try{
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        log("[Mic] Permission granted, stream active");
+        log("Mic permission granted");
       }catch(err){
-        log("[Mic] Error: " + err.message);
-        setStatus("Microphone error");
-        return stopConversation();
+        setStatus("Mic permission denied");
+        log("getUserMedia error:", err.message);
+        return stop();
       }
 
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
       try{
         mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
-        log("[Recorder] Created successfully with " + (mime || "default") + " format");
+        log("MediaRecorder created", mime || "(default)");
       }catch(err){
-        log("[Recorder] Failed: " + err.message);
-        setStatus("Recorder not supported");
-        return stopConversation();
+        log("MediaRecorder failed:", err.message);
+        setStatus("MediaRecorder not supported");
+        return stop();
       }
 
-      mediaRecorder.ondataavailable = (evt) => {
-        if(evt.data.size > 0 && ws.readyState === WebSocket.OPEN){
-          evt.data.arrayBuffer().then(buf => ws.send(buf)).catch(e => log("[Send] Error: " + e.message));
+      mediaRecorder.ondataavailable = (e) => {
+        if(e.data && e.data.size > 0 && ws && ws.readyState === WebSocket.OPEN){
+          e.data.arrayBuffer().then(buf => ws.send(buf)).catch(err => log("send error:", err));
         }
       };
       mediaRecorder.start(200);
-      micBtn.classList.add("listening");
-      setStatus("🎧 Listening...");
+      micBtn.classList.add("live");
+      setStatus("Listening…");
     };
 
     ws.onmessage = (evt) => {
-      if(evt.data instanceof ArrayBuffer){
+      if (evt.data instanceof ArrayBuffer) {
+        // treat as audio (mp3/opus). Audio MIME can vary; using generic blob works across browsers.
         const blob = new Blob([evt.data], { type: "audio/mpeg" });
-        speaker.src = URL.createObjectURL(blob);
-        log("[WS] Received audio data (" + blob.size + " bytes)");
-      }else{
-        log("[WS] Message: " + evt.data);
+        const url = URL.createObjectURL(blob);
+        speaker.src = url;
+        log("Audio chunk", blob.size, "bytes");
+      } else {
+        log("Message", evt.data);
       }
     };
 
-    ws.onerror = (e) => { log("[WS] Error: " + e.message); setStatus("WebSocket error"); };
-    ws.onclose = (e) => { log("[WS] Closed, code " + e.code); setStatus("Disconnected"); micBtn.classList.remove("listening"); cleanup(); };
+    ws.onerror = (e) => { log("WS error", e.message || e); setStatus("WebSocket error"); };
+    ws.onclose = () => { log("WS closed"); cleanup(); setStatus("Disconnected"); micBtn.classList.remove("live"); };
 
   }catch(err){
-    log("[Fatal] " + err.message);
-    setStatus("Connection failed");
+    log("Start error:", err.message);
+    setStatus("Failed to start");
+    cleanup();
   }
 }
 
-function stopConversation(){
-  log("---- Stopping ----");
-  if(mediaRecorder && mediaRecorder.state !== "inactive"){ mediaRecorder.stop(); }
-  if(micStream){ micStream.getTracks().forEach(t => t.stop()); }
-  if(ws && ws.readyState === WebSocket.OPEN){ ws.close(); }
-  micBtn.classList.remove("listening");
+function cleanup(){
+  try { if(mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); } catch {}
+  mediaRecorder = null;
+  try { if(micStream) micStream.getTracks().forEach(t => t.stop()); } catch {}
+  micStream = null;
+  try { if(ws && ws.readyState === WebSocket.OPEN) ws.close(); } catch {}
+  ws = null;
+}
+
+function stop(){
+  cleanup();
+  micBtn.classList.remove("live");
   setStatus("Stopped");
 }
 
-function cleanup(){
-  try{ if(mediaRecorder) mediaRecorder.stop(); }catch{}
-  try{ if(micStream) micStream.getTracks().forEach(t => t.stop()); }catch{}
-  ws = null; mediaRecorder = null; micStream = null;
-}
-
 micBtn.addEventListener("click", () => {
-  if(micBtn.classList.contains("listening")) stopConversation();
-  else startConversation();
+  if (micBtn.classList.contains("live")) stop();
+  else start();
 });
 
-window.addEventListener("error", (e)=>log("[WindowError] " + e.message));
-log("Ready. Click mic to begin.");
+// Boot
+log("✅ script loaded");
+setStatus("Tap to talk");
