@@ -1,62 +1,107 @@
-const micButton = document.getElementById("micButton");
-const statusText = document.getElementById("status");
-let ws, mediaRecorder;
-let audioPlayer = new Audio();
+// Frontend for full-duplex voice via Cloudflare Worker -> OpenAI Realtime
+const WORKER_WS = "wss://square-waterfall-2c5d.nickydoyl.workers.dev"; // your Worker URL (root)
 
-async function startRealtime() {
+const micBtn = document.getElementById("mic");
+const statusEl = document.getElementById("status");
+const logEl = document.getElementById("log");
+
+let ws = null;
+let mediaRecorder = null;
+let micStream = null;
+
+// audio element for playback
+const speaker = new Audio();
+speaker.autoplay = true;
+
+function log(...args) {
+  const line = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+  logEl.textContent += line + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setStatus(t) { statusEl.textContent = t; }
+
+async function startConversation() {
   try {
-    ws = new WebSocket("wss://lively-moon-5a49.nickydoyl.workers.dev");
+    setStatus("Connecting…");
+    ws = new WebSocket(WORKER_WS);
     ws.binaryType = "arraybuffer";
 
     ws.onopen = async () => {
-      statusText.textContent = "🎙️ Connected. Speak now...";
-      micButton.classList.remove("idle");
-      micButton.classList.add("listening");
+      micBtn.classList.add("listening");
+      setStatus("🎙️ Connected. Grant mic permission…");
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        setStatus("❌ Microphone permission denied");
+        log("mic error:", err);
+        stopConversation();
+        return;
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm; codecs=opus" });
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-          event.data.arrayBuffer().then(buf => ws.send(buf));
+      setStatus("Listening…");
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : undefined;
+
+      mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+      mediaRecorder.ondataavailable = (evt) => {
+        if (evt.data && evt.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+          evt.data.arrayBuffer().then(buf => ws.send(buf)).catch(err => log("send err:", err));
         }
       };
-      mediaRecorder.start(250); // send chunks every 250ms
+      mediaRecorder.start(200); // send chunks every 200ms
     };
 
-    ws.onmessage = (event) => {
-      const blob = new Blob([event.data], { type: "audio/mp3" });
-      const url = URL.createObjectURL(blob);
-      audioPlayer.src = url;
-      audioPlayer.play().catch(console.error);
+    ws.onmessage = (evt) => {
+      if (evt.data instanceof ArrayBuffer) {
+        // Treat as audio (mp3/opus) and play
+        const blob = new Blob([evt.data], { type: "audio/mpeg" });
+        const url = URL.createObjectURL(blob);
+        speaker.src = url;
+      } else {
+        try {
+          const msg = JSON.parse(evt.data);
+          log("[json]", msg);
+        } catch {
+          log("[text]", evt.data);
+        }
+      }
+    };
+
+    ws.onerror = (err) => {
+      log("ws error:", err);
+      setStatus("⚠️ WebSocket error");
     };
 
     ws.onclose = () => {
-      micButton.classList.remove("listening");
-      micButton.classList.add("idle");
-      statusText.textContent = "🔇 Disconnected.";
+      setStatus("🔌 Disconnected");
+      micBtn.classList.remove("listening");
+      cleanupMedia();
     };
-  } catch (err) {
-    console.error("Error starting realtime:", err);
-    statusText.textContent = "❌ Failed to start: " + err.message;
+  } catch (e) {
+    log("start err:", e);
+    setStatus("❌ Failed to start");
+    stopConversation();
   }
 }
 
-function stopRealtime() {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop();
-  }
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.close();
-  }
-  micButton.classList.remove("listening");
-  micButton.classList.add("idle");
-  statusText.textContent = "🛑 Stopped.";
+function cleanupMedia() {
+  try { if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); } catch {}
+  mediaRecorder = null;
+  try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch {}
+  micStream = null;
 }
 
-micButton.addEventListener("click", () => {
-  if (micButton.classList.contains("listening")) {
-    stopRealtime();
-  } else {
-    startRealtime();
-  }
+function stopConversation() {
+  cleanupMedia();
+  try { if (ws && ws.readyState === WebSocket.OPEN) ws.close(); } catch {}
+  ws = null;
+  micBtn.classList.remove("listening");
+  setStatus("🛑 Stopped");
+}
+
+micBtn.addEventListener("click", () => {
+  if (micBtn.classList.contains("listening")) stopConversation();
+  else startConversation();
 });

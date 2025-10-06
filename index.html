@@ -3,16 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Realtime Voice Chat</title>
+  <title>Live Voice</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="wrapper">
-    <div class="mic-container">
-      <button id="micButton" class="mic idle"></button>
-      <p id="status">Tap the mic to start talking</p>
+  <main class="app">
+    <h1 class="title">Live Voice</h1>
+    <div class="mic-wrap">
+      <button id="mic" class="mic idle" aria-label="Start conversation"></button>
+      <div id="ring" class="ring"></div>
     </div>
-  </div>
+    <div id="status" class="status">Tap to start. Allow microphone access.</div>
+    <details class="logwrap">
+      <summary>Log</summary>
+      <pre id="log" class="log"></pre>
+    </details>
+  </main>
   <script src="script.js"></script>
 </body>
 </html>
