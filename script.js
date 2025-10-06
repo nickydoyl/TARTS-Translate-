@@ -1,7 +1,4 @@
-// Premium UI Voice Chat wired to your Cloudflare Worker
-// - One tap start/stop
-// - Detailed diagnostics (toggle with ⋯ button)
-// - On-screen banner for errors
+// Final front-end (WebSocket streaming) wired to your Worker
 const WORKER_WS = "wss://noisy-glade-a9eb.nickydoyl.workers.dev";
 
 const micBtn = document.getElementById("mic");
@@ -28,6 +25,7 @@ const speaker = new Audio();
 speaker.autoplay = true;
 
 function showBanner(text){
+  if (!banner || !bannerText) return;
   bannerText.textContent = text;
   banner.classList.remove("hidden");
 }
@@ -36,17 +34,19 @@ bannerClose?.addEventListener("click", ()=>banner.classList.add("hidden"));
 function log(...args){
   const line = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
   const ts = new Date().toLocaleTimeString();
-  logEl.textContent += `[${ts}] ${line}\n`;
-  logEl.scrollTop = logEl.scrollHeight;
+  if (logEl) {
+    logEl.textContent += `[${ts}] ${line}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
   console.log(...args);
 }
-function setStatus(s){ statusEl.textContent = s; }
+function setStatus(s){ if (statusEl) statusEl.textContent = s; }
 
 function diagUpdate(){
-  micStat.textContent = mediaRecorder ? (mediaRecorder.state || "active") : (micStream ? "streaming" : "idle");
-  wsStat.textContent = ws ? ["connecting","open","closing","closed"][ws.readyState] : "closed";
-  sentN.textContent = String(sentChunks);
-  recvN.textContent = String(recvChunks);
+  if (micStat) micStat.textContent = mediaRecorder ? (mediaRecorder.state || "active") : (micStream ? "streaming" : "idle");
+  if (wsStat) wsStat.textContent = ws ? ["connecting","open","closing","closed"][ws.readyState] : "closed";
+  if (sentN) sentN.textContent = String(sentChunks);
+  if (recvN) recvN.textContent = String(recvChunks);
 }
 
 async function start(){
@@ -60,7 +60,6 @@ async function start(){
       log("[WS] connected:", WORKER_WS);
       diagUpdate();
 
-      // ask mic
       try{
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         log("[Mic] permission granted");
@@ -71,7 +70,6 @@ async function start(){
         return stop();
       }
 
-      // recorder
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
       try{
         mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
@@ -110,7 +108,7 @@ async function start(){
 
     ws.onerror = (e) => {
       log("[WS] error", e?.message || e);
-      showBanner("Connection error. Check Worker URL & CORS.");
+      showBanner("Connection error. Check Worker WS support.");
       setStatus("Error");
       diagUpdate();
     };
