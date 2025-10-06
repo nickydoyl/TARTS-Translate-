@@ -1,160 +1,66 @@
-// Final front-end (WebSocket streaming) wired to your Worker
-const WORKER_WS = "wss://noisy-glade-a9eb.nickydoyl.workers.dev";
-
-const micBtn = document.getElementById("mic");
-const statusEl = document.getElementById("status");
-const logEl = document.getElementById("log");
-const diag = document.getElementById("diag");
-const debugToggle = document.getElementById("debugToggle");
-const banner = document.getElementById("banner");
-const bannerText = document.getElementById("bannerText");
-const bannerClose = document.getElementById("bannerClose");
-
+const WORKER_URL = "wss://young-frog-8de4.nickydoyl.workers.dev";
+const button = document.getElementById('talkButton');
+const logDiv = document.getElementById('log');
+const statusDiv = document.getElementById('status');
 let ws = null;
-let micStream = null;
-let mediaRecorder = null;
-let sentChunks = 0;
-let recvChunks = 0;
+let mediaStream = null;
 
-const micStat = document.getElementById("micStat");
-const wsStat = document.getElementById("wsStat");
-const sentN = document.getElementById("sentN");
-const recvN = document.getElementById("recvN");
-
-const speaker = new Audio();
-speaker.autoplay = true;
-
-function showBanner(text){
-  if (!banner || !bannerText) return;
-  bannerText.textContent = text;
-  banner.classList.remove("hidden");
-}
-bannerClose?.addEventListener("click", ()=>banner.classList.add("hidden"));
-
-function log(...args){
-  const line = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
-  const ts = new Date().toLocaleTimeString();
-  if (logEl) {
-    logEl.textContent += `[${ts}] ${line}\n`;
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-  console.log(...args);
-}
-function setStatus(s){ if (statusEl) statusEl.textContent = s; }
-
-function diagUpdate(){
-  if (micStat) micStat.textContent = mediaRecorder ? (mediaRecorder.state || "active") : (micStream ? "streaming" : "idle");
-  if (wsStat) wsStat.textContent = ws ? ["connecting","open","closing","closed"][ws.readyState] : "closed";
-  if (sentN) sentN.textContent = String(sentChunks);
-  if (recvN) recvN.textContent = String(recvChunks);
+function log(msg) {
+  console.log(msg);
+  logDiv.innerHTML += `<div>> ${msg}</div>`;
 }
 
-async function start(){
-  try{
-    setStatus("Connecting…");
-    ws = new WebSocket(WORKER_WS);
-    ws.binaryType = "arraybuffer";
-    diagUpdate();
-
-    ws.onopen = async () => {
-      log("[WS] connected:", WORKER_WS);
-      diagUpdate();
-
-      try{
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        log("[Mic] permission granted");
-      }catch(err){
-        log("[Mic] denied:", err?.message || err);
-        setStatus("Microphone blocked");
-        showBanner("Microphone permission denied");
-        return stop();
-      }
-
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
-      try{
-        mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
-        log("[Recorder] started with", mime || "(default)");
-      }catch(err){
-        log("[Recorder] failed:", err?.message || err);
-        showBanner("Your browser doesn't support MediaRecorder");
-        setStatus("Recorder unsupported");
-        return stop();
-      }
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (!e.data || e.data.size === 0) return;
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        e.data.arrayBuffer()
-          .then(buf => { ws.send(buf); sentChunks++; diagUpdate(); })
-          .catch(err=>log("[Send] error:", err));
-      };
-      mediaRecorder.start(200);
-
-      micBtn.classList.add("live");
-      setStatus("Listening…");
+async function startTalking() {
+  try {
+    log('Requesting microphone...');
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    ws = new WebSocket(WORKER_URL);
+    
+    ws.onopen = () => {
+      log('Connected to worker');
+      statusDiv.textContent = 'Status: Connected';
+      button.classList.add('active');
     };
 
-    ws.onmessage = (evt) => {
-      if (evt.data instanceof ArrayBuffer) {
-        const blob = new Blob([evt.data], { type: "audio/mpeg" });
-        const url = URL.createObjectURL(blob);
-        speaker.src = url;
-        recvChunks++; diagUpdate();
-        log("[WS] audio", blob.size, "bytes");
-      } else {
-        log("[WS] text", evt.data);
-      }
-    };
-
-    ws.onerror = (e) => {
-      log("[WS] error", e?.message || e);
-      showBanner("Connection error. Check Worker WS support.");
-      setStatus("Error");
-      diagUpdate();
-    };
-
+    ws.onerror = (err) => log('WebSocket Error: ' + err.message);
     ws.onclose = () => {
-      log("[WS] closed");
-      setStatus("Disconnected");
-      micBtn.classList.remove("live");
-      cleanup();
-      diagUpdate();
+      log('Connection closed');
+      button.classList.remove('active');
+      statusDiv.textContent = 'Status: Disconnected';
     };
-  }catch(err){
-    log("[Fatal] start error:", err?.message || err);
-    showBanner("Start failed: " + (err?.message || err));
-    setStatus("Failed");
-    cleanup();
-    diagUpdate();
+
+    const audioCtx = new AudioContext({ sampleRate: 24000 });
+    const source = audioCtx.createMediaStreamSource(mediaStream);
+    const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+    source.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    processor.onaudioprocess = (e) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          pcm[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
+        }
+        ws.send(pcm);
+      }
+    };
+  } catch (e) {
+    log('Error starting mic: ' + e.message);
   }
 }
 
-function cleanup(){
-  try{ if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); }catch{}
-  mediaRecorder = null;
-  try{ if (micStream) micStream.getTracks().forEach(t=>t.stop()); }catch{}
-  micStream = null;
-  try{ if (ws && ws.readyState === WebSocket.OPEN) ws.close(); }catch{}
-  ws = null;
+function stopTalking() {
+  if (ws) ws.close();
+  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+  button.classList.remove('active');
+  statusDiv.textContent = 'Status: Stopped';
 }
 
-function stop(){
-  cleanup();
-  micBtn.classList.remove("live");
-  setStatus("Stopped");
-  diagUpdate();
-}
-
-micBtn.addEventListener("click", ()=>{
-  if (micBtn.classList.contains("live")) stop();
-  else start();
+let isTalking = false;
+button.addEventListener('click', () => {
+  if (!isTalking) startTalking();
+  else stopTalking();
+  isTalking = !isTalking;
 });
-
-debugToggle.addEventListener("click", ()=>{
-  diag.classList.toggle("hidden");
-});
-
-// boot
-log("✅ script loaded");
-setStatus("Tap to talk");
-diagUpdate();
