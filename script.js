@@ -1,93 +1,142 @@
-// Frontend: ChatGPT-like voice chat (press to start/stop) using your Cloudflare Worker
-const WORKER_WS = "wss://noisy-glade-a9eb.nickydoyl.workers.dev"; // <— your worker URL
+// Premium UI Voice Chat wired to your Cloudflare Worker
+// - One tap start/stop
+// - Detailed diagnostics (toggle with ⋯ button)
+// - On-screen banner for errors
+const WORKER_WS = "wss://noisy-glade-a9eb.nickydoyl.workers.dev";
 
 const micBtn = document.getElementById("mic");
 const statusEl = document.getElementById("status");
 const logEl = document.getElementById("log");
+const diag = document.getElementById("diag");
+const debugToggle = document.getElementById("debugToggle");
+const banner = document.getElementById("banner");
+const bannerText = document.getElementById("bannerText");
+const bannerClose = document.getElementById("bannerClose");
 
 let ws = null;
 let micStream = null;
 let mediaRecorder = null;
+let sentChunks = 0;
+let recvChunks = 0;
 
-// Simple speaker
+const micStat = document.getElementById("micStat");
+const wsStat = document.getElementById("wsStat");
+const sentN = document.getElementById("sentN");
+const recvN = document.getElementById("recvN");
+
 const speaker = new Audio();
 speaker.autoplay = true;
 
+function showBanner(text){
+  bannerText.textContent = text;
+  banner.classList.remove("hidden");
+}
+bannerClose?.addEventListener("click", ()=>banner.classList.add("hidden"));
+
 function log(...args){
   const line = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
-  logEl.textContent += `[${new Date().toLocaleTimeString()}] ${line}\n`;
+  const ts = new Date().toLocaleTimeString();
+  logEl.textContent += `[${ts}] ${line}\n`;
   logEl.scrollTop = logEl.scrollHeight;
   console.log(...args);
 }
-function setStatus(t){ statusEl.textContent = t; }
+function setStatus(s){ statusEl.textContent = s; }
+
+function diagUpdate(){
+  micStat.textContent = mediaRecorder ? (mediaRecorder.state || "active") : (micStream ? "streaming" : "idle");
+  wsStat.textContent = ws ? ["connecting","open","closing","closed"][ws.readyState] : "closed";
+  sentN.textContent = String(sentChunks);
+  recvN.textContent = String(recvChunks);
+}
 
 async function start(){
   try{
     setStatus("Connecting…");
-    log("Opening WebSocket to", WORKER_WS);
     ws = new WebSocket(WORKER_WS);
     ws.binaryType = "arraybuffer";
+    diagUpdate();
 
     ws.onopen = async () => {
-      log("WS connected");
-      // get mic
+      log("[WS] connected:", WORKER_WS);
+      diagUpdate();
+
+      // ask mic
       try{
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        log("Mic permission granted");
+        log("[Mic] permission granted");
       }catch(err){
-        setStatus("Mic permission denied");
-        log("getUserMedia error:", err.message);
+        log("[Mic] denied:", err?.message || err);
+        setStatus("Microphone blocked");
+        showBanner("Microphone permission denied");
         return stop();
       }
 
+      // recorder
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
       try{
         mediaRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
-        log("MediaRecorder created", mime || "(default)");
+        log("[Recorder] started with", mime || "(default)");
       }catch(err){
-        log("MediaRecorder failed:", err.message);
-        setStatus("MediaRecorder not supported");
+        log("[Recorder] failed:", err?.message || err);
+        showBanner("Your browser doesn't support MediaRecorder");
+        setStatus("Recorder unsupported");
         return stop();
       }
 
       mediaRecorder.ondataavailable = (e) => {
-        if(e.data && e.data.size > 0 && ws && ws.readyState === WebSocket.OPEN){
-          e.data.arrayBuffer().then(buf => ws.send(buf)).catch(err => log("send error:", err));
-        }
+        if (!e.data || e.data.size === 0) return;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        e.data.arrayBuffer()
+          .then(buf => { ws.send(buf); sentChunks++; diagUpdate(); })
+          .catch(err=>log("[Send] error:", err));
       };
       mediaRecorder.start(200);
+
       micBtn.classList.add("live");
       setStatus("Listening…");
     };
 
     ws.onmessage = (evt) => {
       if (evt.data instanceof ArrayBuffer) {
-        // treat as audio (mp3/opus). Audio MIME can vary; using generic blob works across browsers.
         const blob = new Blob([evt.data], { type: "audio/mpeg" });
         const url = URL.createObjectURL(blob);
         speaker.src = url;
-        log("Audio chunk", blob.size, "bytes");
+        recvChunks++; diagUpdate();
+        log("[WS] audio", blob.size, "bytes");
       } else {
-        log("Message", evt.data);
+        log("[WS] text", evt.data);
       }
     };
 
-    ws.onerror = (e) => { log("WS error", e.message || e); setStatus("WebSocket error"); };
-    ws.onclose = () => { log("WS closed"); cleanup(); setStatus("Disconnected"); micBtn.classList.remove("live"); };
+    ws.onerror = (e) => {
+      log("[WS] error", e?.message || e);
+      showBanner("Connection error. Check Worker URL & CORS.");
+      setStatus("Error");
+      diagUpdate();
+    };
 
+    ws.onclose = () => {
+      log("[WS] closed");
+      setStatus("Disconnected");
+      micBtn.classList.remove("live");
+      cleanup();
+      diagUpdate();
+    };
   }catch(err){
-    log("Start error:", err.message);
-    setStatus("Failed to start");
+    log("[Fatal] start error:", err?.message || err);
+    showBanner("Start failed: " + (err?.message || err));
+    setStatus("Failed");
     cleanup();
+    diagUpdate();
   }
 }
 
 function cleanup(){
-  try { if(mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); } catch {}
+  try{ if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); }catch{}
   mediaRecorder = null;
-  try { if(micStream) micStream.getTracks().forEach(t => t.stop()); } catch {}
+  try{ if (micStream) micStream.getTracks().forEach(t=>t.stop()); }catch{}
   micStream = null;
-  try { if(ws && ws.readyState === WebSocket.OPEN) ws.close(); } catch {}
+  try{ if (ws && ws.readyState === WebSocket.OPEN) ws.close(); }catch{}
   ws = null;
 }
 
@@ -95,13 +144,19 @@ function stop(){
   cleanup();
   micBtn.classList.remove("live");
   setStatus("Stopped");
+  diagUpdate();
 }
 
-micBtn.addEventListener("click", () => {
+micBtn.addEventListener("click", ()=>{
   if (micBtn.classList.contains("live")) stop();
   else start();
 });
 
-// Boot
+debugToggle.addEventListener("click", ()=>{
+  diag.classList.toggle("hidden");
+});
+
+// boot
 log("✅ script loaded");
 setStatus("Tap to talk");
+diagUpdate();
