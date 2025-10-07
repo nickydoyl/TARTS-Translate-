@@ -1,15 +1,14 @@
-Realtime Voice Chat - GitHub Frontend
+Realtime Voice Chat - Debug Mode
 -----------------------------------
-Connects to:
-  wss://broad-hat-1325.nickydoyl.workers.dev
+This version adds detailed on-screen and console logs to trace what happens when you press the mic button.
 
-Features:
-- One-click mic toggle
-- Real-time streaming audio
-- AI voice responses playback
-- ChatGPT-like glowing mic UI
+Shows:
+- Mic permission request + success/failure
+- Worker connection steps
+- WebSocket messages
+- Audio send/receive events
 
-How to use:
-1. Upload these files to your GitHub repo.
-2. Connect repo to Cloudflare Pages.
-3. Open your live site and click the mic button.
+Usage:
+1. Upload all files to GitHub Pages or Cloudflare Pages.
+2. Open in your browser (HTTPS required).
+3. Press the 🎤 button — watch the logs update live.
