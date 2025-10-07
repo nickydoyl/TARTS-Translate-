@@ -50,7 +50,7 @@
   <script>
     const logDiv = document.getElementById('log');
     const btn = document.getElementById('toggleBtn');
-    let mediaRecorder, ws, audioChunks = [], isRecording = false;
+    let mediaRecorder, ws, audioChunks = [], isRecording = false, stream = null;
 
     function log(message, type='info') {
       const line = document.createElement('div');
@@ -62,12 +62,15 @@
       console.log(message);
     }
 
-    async function connect() {
+    function connect() {
       try {
         ws = new WebSocket("wss://broad-hat-1325.nickydoyl.workers.dev");
         ws.onopen = () => log("✅ Connected to Worker");
         ws.onmessage = (msg) => log("🧠 AI: " + msg.data, 'ai');
-        ws.onclose = (e) => log(`🔒 Disconnected (code=${e.code})`);
+        ws.onclose = (e) => {
+          log(`🔒 Disconnected (code=${e.code})`);
+          setTimeout(connect, 2000);
+        };
         ws.onerror = (e) => log("❌ WebSocket error");
       } catch (e) {
         log("❌ Connection failed: " + e.message);
@@ -75,25 +78,43 @@
     }
 
     async function startRecording() {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        blob.arrayBuffer().then(buffer => {
-          if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(buffer);
-            log("📤 Sent audio to worker");
-          } else {
-            log("⚠️ WebSocket not open");
-          }
-        });
-      };
-      mediaRecorder.start();
-      isRecording = true;
-      btn.classList.add('active');
-      log("🎙️ Recording started");
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log("⚠️ WebSocket not open, retrying...");
+        setTimeout(startRecording, 1500);
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          blob.arrayBuffer().then(buffer => {
+            if(ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(buffer);
+              log("📤 Sent audio to worker");
+            } else {
+              log("⚠️ WebSocket not open");
+            }
+          });
+          stopMic();
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        btn.classList.add('active');
+        log("🎙️ Recording started");
+      } catch (err) {
+        log("🚫 Microphone error: " + err.message);
+      }
+    }
+
+    function stopMic() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        log("🎧 Mic stopped");
+        stream = null;
+      }
     }
 
     function stopRecording() {
