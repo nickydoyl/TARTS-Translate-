@@ -1,11 +1,14 @@
 body {
   font-family: Arial, sans-serif;
-  background: linear-gradient(145deg, #0a0a0f, #1a1a25);
-  color: #e8e8e8;
+  background: radial-gradient(circle at top, #0a0a0f, #1b1b27);
+  color: #d0d0e0;
   text-align: center;
-  padding-top: 60px;
+  margin: 0;
+  padding: 40px 10px;
 }
-h1 { color: #33aaff; }
+h1 {
+  color: #33aaff;
+}
 #toggleBtn {
   background: #007bff;
   border: none;
@@ -16,9 +19,11 @@ h1 { color: #33aaff; }
   cursor: pointer;
   box-shadow: 0 0 15px #007bff88;
 }
-#toggleBtn:hover { background: #005bd1; }
+#toggleBtn:hover {
+  background: #005bd1;
+}
 #logBox {
-  width: 80%;
+  width: 90%;
   max-width: 700px;
   height: 250px;
   margin: 30px auto;
@@ -31,7 +36,7 @@ h1 { color: #33aaff; }
   color: #7fff7f;
 }
 #waveform {
-  width: 80%;
+  width: 90%;
   height: 100px;
   margin: 20px auto;
   display: block;
