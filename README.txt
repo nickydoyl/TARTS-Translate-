@@ -1,16 +1,10 @@
-Realtime Worker Test
-=========================
-This project lets you test your Cloudflare Worker connection.
+TARS Translate Voice Chat (Vercel Proxy Version)
+---------------------------------------------------
+1. Upload all files to your GitHub repo.
+2. Deploy to Cloudflare Pages or GitHub Pages.
+3. Ensure your Vercel proxy worker is live at:
+   wss://tarts-translate-2vxuakkft-nickydoyls-projects.vercel.app
+4. Visit your site (e.g., https://translate.qbitsmith.com/)
+5. Press the 🎤 button to start/stop.
 
-Steps:
-1. Unzip files.
-2. Open index.html in your browser (Chrome preferred).
-3. Click '🎤 Start Test'.
-4. Observe logs in the window.
-
-Expected sequence:
- - 🎤 Requesting microphone...
- - ✅ Microphone access granted
- - 🌐 Connecting to wss://broad-hat-1325.nickydoyl.workers.dev
- - ✅ WebSocket connected
- - 🎧 Starting audio stream...
+Logs will show microphone, connection, and AI responses in real-time.
