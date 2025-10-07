@@ -6,9 +6,7 @@ body {
   margin: 0;
   padding: 40px 10px;
 }
-h1 {
-  color: #33aaff;
-}
+h1 { color: #33aaff; }
 #toggleBtn {
   background: #007bff;
   border: none;
@@ -19,9 +17,7 @@ h1 {
   cursor: pointer;
   box-shadow: 0 0 15px #007bff88;
 }
-#toggleBtn:hover {
-  background: #005bd1;
-}
+#toggleBtn:hover { background: #005bd1; }
 #logBox {
   width: 90%;
   max-width: 700px;
