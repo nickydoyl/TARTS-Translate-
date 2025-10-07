@@ -1,66 +1,93 @@
-const WORKER_URL = "wss://young-frog-8de4.nickydoyl.workers.dev";
-const button = document.getElementById('talkButton');
-const logDiv = document.getElementById('log');
-const statusDiv = document.getElementById('status');
-let ws = null;
-let mediaStream = null;
+const WORKER_URL = "wss://broad-hat-1325.nickydoyl.workers.dev";
+const micButton = document.getElementById("micButton");
+const statusText = document.getElementById("status");
+const log = document.getElementById("log");
 
-function log(msg) {
-  console.log(msg);
-  logDiv.innerHTML += `<div>> ${msg}</div>`;
+let ws = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let audioContext = null;
+
+function addLog(msg) {
+  const t = new Date().toLocaleTimeString();
+  log.textContent += `[${t}] ${msg}\n`;
+  log.scrollTop = log.scrollHeight;
 }
 
-async function startTalking() {
-  try {
-    log('Requesting microphone...');
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    ws = new WebSocket(WORKER_URL);
-    
-    ws.onopen = () => {
-      log('Connected to worker');
-      statusDiv.textContent = 'Status: Connected';
-      button.classList.add('active');
-    };
+async function startChat() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    stopChat();
+    return;
+  }
 
-    ws.onerror = (err) => log('WebSocket Error: ' + err.message);
-    ws.onclose = () => {
-      log('Connection closed');
-      button.classList.remove('active');
-      statusDiv.textContent = 'Status: Disconnected';
-    };
+  addLog("Connecting to worker...");
+  statusText.textContent = "Connecting...";
+  ws = new WebSocket(WORKER_URL);
+  
+  ws.onopen = async () => {
+    addLog("Connected to worker.");
+    statusText.textContent = "Listening";
+    micButton.classList.add("listening");
 
-    const audioCtx = new AudioContext({ sampleRate: 24000 });
-    const source = audioCtx.createMediaStreamSource(mediaStream);
-    const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
     source.connect(processor);
-    processor.connect(audioCtx.destination);
+    processor.connect(audioContext.destination);
 
-    processor.onaudioprocess = (e) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        const input = e.inputBuffer.getChannelData(0);
-        const pcm = new Int16Array(input.length);
-        for (let i = 0; i < input.length; i++) {
-          pcm[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
-        }
-        ws.send(pcm);
+    processor.onaudioprocess = (event) => {
+      const input = event.inputBuffer.getChannelData(0);
+      const pcm16 = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i++) {
+        pcm16[i] = Math.min(1, input[i]) * 0x7fff;
+      }
+      ws.send(pcm16.buffer);
+    };
+
+    ws.onmessage = async (e) => {
+      const data = JSON.parse(e.data || "{}");
+      if (data.type === "info") {
+        addLog(data.message);
+      }
+      if (data.type === "audio") {
+        micButton.classList.remove("listening");
+        micButton.classList.add("speaking");
+        statusText.textContent = "Speaking...";
+        const audioData = new Uint8Array(data.chunk);
+        const blob = new Blob([audioData], { type: "audio/wav" });
+        const audioURL = URL.createObjectURL(blob);
+        const audio = new Audio(audioURL);
+        audio.onended = () => {
+          micButton.classList.remove("speaking");
+          micButton.classList.add("listening");
+          statusText.textContent = "Listening";
+        };
+        audio.play();
       }
     };
-  } catch (e) {
-    log('Error starting mic: ' + e.message);
+
+    ws.onclose = () => {
+      addLog("Connection closed.");
+      micButton.classList.remove("listening", "speaking", "processing");
+      statusText.textContent = "Disconnected";
+    };
+
+    ws.onerror = (err) => {
+      addLog("Error: " + err.message);
+      statusText.textContent = "Error";
+    };
+  };
+}
+
+function stopChat() {
+  if (ws) {
+    ws.close();
+    addLog("Stopped connection.");
+    micButton.classList.remove("listening");
+    statusText.textContent = "Ready";
   }
 }
 
-function stopTalking() {
-  if (ws) ws.close();
-  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-  button.classList.remove('active');
-  statusDiv.textContent = 'Status: Stopped';
-}
-
-let isTalking = false;
-button.addEventListener('click', () => {
-  if (!isTalking) startTalking();
-  else stopTalking();
-  isTalking = !isTalking;
-});
+micButton.addEventListener("click", startChat);
