@@ -1,116 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Realtime Voice Chat</title>
-  <style>
-    body {
-      background: #1e1e1e;
-      color: #f5f5f5;
-      font-family: 'Inter', sans-serif;
-      margin: 0; padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    h1 { color: #00aaff; }
-    button {
-      background: #00aaff;
-      border: none;
-      border-radius: 50%;
-      width: 90px; height: 90px;
-      font-size: 22px; color: white;
-      cursor: pointer;
-      box-shadow: 0 0 15px #00aaff88;
-    }
-    button.active { background: #ff3355; box-shadow: 0 0 15px #ff335588; }
-    #log {
-      width: 90%;
-      max-width: 600px;
-      height: 40vh;
-      overflow-y: auto;
-      background: #2a2a2a;
-      padding: 15px;
-      border-radius: 10px;
-      margin-top: 20px;
-      font-size: 14px;
-      font-family: monospace;
-    }
-    .user { color: #00ff99; }
-    .ai { color: #ffa500; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Chat Realtime</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>🎙️ Voice Chat</h1>
   <button id="toggleBtn">🎤</button>
   <div id="log"></div>
-  <script>
-    const logDiv = document.getElementById('log');
-    const btn = document.getElementById('toggleBtn');
-    let mediaRecorder, ws, audioChunks = [], isRecording = false;
-
-    function log(message, type='info') {
-      const line = document.createElement('div');
-      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-      if(type === 'user') line.className='user';
-      if(type === 'ai') line.className='ai';
-      logDiv.appendChild(line);
-      logDiv.scrollTop = logDiv.scrollHeight;
-      console.log(message);
-    }
-
-    async function connect() {
-      try {
-        ws = new WebSocket("wss://broad-hat-1325.nickydoyl.workers.dev");
-        ws.onopen = () => log("✅ Connected to Worker");
-        ws.onmessage = (msg) => log("🧠 AI: " + msg.data, 'ai');
-        ws.onclose = (e) => log(`🔒 Disconnected (code=${e.code})`);
-        ws.onerror = (e) => log("❌ WebSocket error");
-      } catch (e) {
-        log("❌ Connection failed: " + e.message);
-      }
-    }
-
-    async function startRecording() {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        blob.arrayBuffer().then(buffer => {
-          if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(buffer);
-            log("📤 Sent audio to worker");
-          } else {
-            log("⚠️ WebSocket not open");
-          }
-        });
-      };
-      mediaRecorder.start();
-      isRecording = true;
-      btn.classList.add('active');
-      log("🎙️ Recording started");
-    }
-
-    function stopRecording() {
-      if(mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        btn.classList.remove('active');
-        log("🛑 Recording stopped");
-      }
-    }
-
-    btn.addEventListener('click', () => {
-      if(!isRecording) startRecording();
-      else stopRecording();
-    });
-
-    window.onload = connect;
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
