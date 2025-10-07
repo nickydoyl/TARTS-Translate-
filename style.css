@@ -1,32 +1,36 @@
 body {
-  background-color: #0b0c10;
-  color: #66fcf1;
-  font-family: Arial, sans-serif;
+  background-color: #121212;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   text-align: center;
-  padding: 50px;
+  margin: 0;
+  padding: 20px;
 }
-#micButton {
-  background: #45a29e;
-  color: white;
+.container { max-width: 600px; margin: auto; }
+button {
+  background: #007aff;
   border: none;
-  border-radius: 50px;
-  padding: 15px 30px;
-  font-size: 20px;
+  color: white;
+  padding: 14px 24px;
+  font-size: 18px;
+  border-radius: 8px;
   cursor: pointer;
+}
+button.active { background: #d32f2f; }
+#waveform {
+  width: 100%;
+  height: 120px;
+  background: #1e1e1e;
+  border-radius: 8px;
   margin-top: 20px;
 }
-#micButton.active {
-  background: #ff4757;
-}
 #log {
-  margin-top: 40px;
-  text-align: left;
-  width: 90%;
-  max-width: 700px;
-  height: 300px;
-  overflow-y: auto;
-  border: 1px solid #45a29e;
+  margin-top: 20px;
+  background: #1c1c1c;
   padding: 10px;
   border-radius: 8px;
-  background: #1f2833;
+  text-align: left;
+  font-family: monospace;
+  max-height: 250px;
+  overflow-y: auto;
 }

@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Realtime Voice Chat</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TARS Translate v7</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Realtime Voice Chat</h1>
-  <p id="status">Idle</p>
-  <button id="micButton">🎤 Start Talking</button>
-  <div id="log"></div>
+  <div class="container">
+    <h1>🎧 TARS Translate</h1>
+    <button id="toggleBtn">🎤 Start / Stop</button>
+    <canvas id="waveform"></canvas>
+    <div id="log"></div>
+  </div>
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
+  <audio id="buzz" src="buzz.mp3" preload="auto"></audio>
   <script src="script.js"></script>
 </body>
 </html>
