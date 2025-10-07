@@ -1,17 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Realtime Voice Chat</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Realtime Worker Diagnostic v2</title>
+  <style>
+    body { background:#0f172a; color:#e2e8f0; font-family:sans-serif; text-align:center; margin:0; padding:30px;}
+    h1{color:#60a5fa;}
+    #status{color:#a5b4fc;margin:10px;font-size:1.1em;}
+    button{background:#2563eb;color:white;border:none;padding:14px 24px;border-radius:8px;cursor:pointer;font-size:18px;}
+    button.active{background:#16a34a;}
+    pre{background:#1e293b;padding:15px;border-radius:8px;width:90%;max-width:600px;margin:20px auto;text-align:left;height:300px;overflow:auto;}
+  </style>
 </head>
 <body>
-<h1>🎧 Realtime Voice Chat</h1>
-<p id="status">Ready</p>
-<button id="mic">🎤</button>
-<pre id="log"></pre>
-<div id="chat"></div>
-<script src="script.js"></script>
+  <h1>Realtime Worker Diagnostic v2</h1>
+  <p id="status">Idle</p>
+  <button id="startBtn">🎤 Start Test</button>
+  <pre id="log"></pre>
+  <script src="script.js"></script>
 </body>
 </html>
