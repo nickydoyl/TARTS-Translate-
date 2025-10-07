@@ -1,10 +1,5 @@
-# Realtime Voice Chat (GitHub Version)
-## Setup
-1. Upload all 4 files (`index.html`, `style.css`, `script.js`, `README.md`) to your GitHub repository.
-2. Enable GitHub Pages in your repository settings.
-3. Visit your published site URL.
-
-## Usage
-- Click the 🎤 button to start recording.
-- Click again to stop and send the audio.
-- Logs show connection, mic, and AI responses.
+# Voice Chat (Auto Connect)
+1. Upload all 3 files (`index.html`, `style.css`, `script.js`) to GitHub Pages or Cloudflare Pages.
+2. Page automatically connects to the Cloudflare Worker on load.
+3. Click 🎤 to start/stop recording.
+4. Logs show all connection and mic actions in real-time.
