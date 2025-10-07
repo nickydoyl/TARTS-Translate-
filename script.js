@@ -1,4 +1,4 @@
-window.onload = () => {
+document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("toggleBtn");
   const logBox = document.getElementById("logBox");
   const status = document.getElementById("status");
@@ -9,6 +9,9 @@ window.onload = () => {
   const buzz = new Audio("data:audio/mp3;base64,//uQxAAAAAAAAAAAA...");
 
   let wavePhase = 0, active = false;
+
+  log("✅ Page loaded — ready.", "info");
+
   function drawWave() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.beginPath();
@@ -34,15 +37,15 @@ window.onload = () => {
     logBox.scrollTop = logBox.scrollHeight;
   }
 
-  btn.onclick = async () => {
-    log("🎤 Button clicked – starting test");
+  btn.addEventListener("click", () => {
+    log("🎤 Button pressed");
     ding.play();
     status.textContent = "Connecting...";
     active = true;
     try {
-      const ws = new WebSocket("wss://broad-hat-1325.nickydoyl.workers.dev");
+      const ws = new WebSocket("wss://tarts-translate-2vxuakkft-nickydoyls-projects.vercel.app");
       ws.onopen = () => {
-        log("✅ WebSocket connected to Worker");
+        log("✅ Connected to Vercel WebSocket endpoint");
         status.textContent = "Connected";
       };
       ws.onmessage = (e) => log(`📩 ${e.data}`);
@@ -60,9 +63,9 @@ window.onload = () => {
       };
     } catch (err) {
       buzz.play();
-      log(`💥 Fatal: ${err.message}`, "error");
+      log(`💥 Fatal error: ${err.message}`, "error");
       status.textContent = "Failed";
       active = false;
     }
-  };
-};
+  });
+});
