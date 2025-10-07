@@ -3,19 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Worker Button Tester</title>
+  <title>Auto Worker Test</title>
   <style>
     body { background:#0f172a; color:#e2e8f0; font-family:sans-serif; text-align:center; padding:30px;}
     h1{color:#60a5fa;}
-    button{background:#2563eb;color:white;border:none;padding:14px 24px;border-radius:8px;cursor:pointer;font-size:18px;}
     #log{background:#1e293b;padding:15px;border-radius:8px;width:90%;max-width:600px;margin:20px auto;text-align:left;height:300px;overflow:auto;}
   </style>
 </head>
 <body>
-  <h1>Worker Button Tester</h1>
-  <button id="testButton">Press to Test</button>
-  <div id="log">Logs will appear here...</div>
+  <h1>Auto Worker Test</h1>
+  <div id="log">Initializing...</div>
 
-  <script src="script.js"></script>
+  <script>
+    const WORKER_URL = "wss://broad-hat-1325.nickydoyl.workers.dev";
+    const logDiv = document.getElementById("log");
+
+    function log(msg){
+      const t = new Date().toLocaleTimeString();
+      logDiv.innerHTML += `[${t}] ${msg}<br>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(msg);
+    }
+
+    function testConnection(){
+      log("🚀 Starting automatic test...");
+      try {
+        const ws = new WebSocket(WORKER_URL);
+        ws.onopen = () => log("✅ WebSocket connected");
+        ws.onerror = e => log("❌ Error: " + (e.message || JSON.stringify(e)));
+        ws.onclose = e => log(`🔒 Closed: code=${e.code}, reason=${e.reason || "none"}`);
+      } catch (err) {
+        log("🚫 Failed: " + err.message);
+      }
+    }
+
+    window.onload = () => {
+      log("🌐 Page loaded - auto test beginning in 1s...");
+      setTimeout(testConnection, 1000);
+      setInterval(testConnection, 10000); // repeat every 10 seconds
+    };
+  </script>
 </body>
 </html>
