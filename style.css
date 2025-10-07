@@ -1,14 +1,12 @@
-body {
-  background:#0f172a; color:#e2e8f0; font-family:system-ui, sans-serif;
-  text-align:center; margin:0; padding:24px;
-}
-h1 { color:#60a5fa; margin:8px 0 4px; }
-button {
-  background:#2563eb; color:#fff; border:none; border-radius:999px;
-  padding:14px 22px; font-size:16px; cursor:pointer;
-}
-button.on { background:#16a34a; box-shadow:0 0 18px #16a34a99; }
-pre {
-  background:#111827; text-align:left; padding:14px; border-radius:10px;
-  width:95%; max-width:720px; height:320px; margin:16px auto; overflow:auto;
-}
+:root { --bg:#0e0f12; --fg:#eaeef2; --muted:#9aa4af; --accent:#1ea1ff; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto; }
+main { max-width:720px; margin:40px auto; padding:0 16px; }
+h1 { margin:0 0 12px; }
+.status { color:var(--muted); margin:8px 0 18px; }
+.mic { display:block; margin:20px auto; width:140px; height:140px; border-radius:50%; border:none; background:var(--accent); color:#fff; font-weight:700; box-shadow:0 10px 30px rgba(30,161,255,.35); }
+.mic.active { background:#ff4d4d; box-shadow:0 10px 30px rgba(255,77,77,.35); }
+.log, .chat { background:#14161b; border:1px solid #1f232b; padding:12px; border-radius:10px; margin-top:16px; max-height:40vh; overflow:auto; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.log { color:#bcd; }
+.chat .u { color:#ddd; margin:6px 0; }
+.chat .ai { color:#9be37a; margin:6px 0; }

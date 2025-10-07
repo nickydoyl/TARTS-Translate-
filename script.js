@@ -1,85 +1,137 @@
-const WORKER_URL = "wss://broad-hat-1325.nickydoyl.workers.dev";
-const btn = document.getElementById('toggleBtn');
-const logEl = document.getElementById('log');
+/* Frontend for full-duplex Realtime via Cloudflare Worker */
+const WORKER_WSS = "wss://broad-hat-1325.nickydoyl.workers.dev"; // your existing worker
 
-let ws = null, mediaRecorder = null, isRecording = false, stream = null;
+const logEl = document.getElementById("log");
+const chatEl = document.getElementById("chat");
+const statusEl = document.getElementById("status");
+const micBtn = document.getElementById("micBtn");
 
-function log(msg){
+let ws = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let audioCtx;
+let pcmQueue = [];
+
+function log(msg) {
   const t = new Date().toLocaleTimeString();
-  logEl.textContent += `[${t}] ${msg}\n`;
+  logEl.innerHTML += `[${t}] ${msg}<br/>`;
   logEl.scrollTop = logEl.scrollHeight;
-  console.log(msg);
+}
+function chat(role, text) {
+  const div = document.createElement("div");
+  div.className = role === "user" ? "u" : "ai";
+  div.textContent = (role === "user" ? "You: " : "AI: ") + text;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function setStatus(s) { statusEl.textContent = s; }
+
+function connect() {
+  return new Promise((resolve, reject) => {
+    ws = new WebSocket(WORKER_WSS);
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => { log("✅ WS connected"); setStatus("Connected"); resolve(); };
+    ws.onmessage = evt => handleServerMessage(evt.data);
+    ws.onerror = evt => { log("❌ WS error"); };
+    ws.onclose = evt => { log(`🔒 WS closed (${evt.code})`); setStatus("Disconnected"); };
+  });
 }
 
-async function connect(){
-  log('🌐 Connecting to worker...');
-  ws = new WebSocket(WORKER_URL);
-  ws.binaryType = "arraybuffer";
-  ws.onopen = () => log('✅ Connected to Worker');
-  ws.onmessage = (e) => log('📩 Message: ' + (typeof e.data === 'string'? e.data.slice(0,160): "[binary]"));
-  ws.onclose = (e) => { log(`🔒 Closed (code=${e.code})`); setTimeout(connect, 3000); };
-  ws.onerror = (e) => log('❌ WebSocket error');
-}
-
-async function startRecording(){
-  if (!ws || ws.readyState !== WebSocket.OPEN){
-    log("⚠️ WebSocket not ready, reconnecting...");
-    connect();
-    setTimeout(startRecording, 1500);
-    return;
-  }
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    log("🎤 Microphone started");
-    mediaRecorder = new MediaRecorder(stream, { mimeType:'audio/webm' });
-    const chunks = [];
-    mediaRecorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type:'audio/webm' });
-      const buf = await blob.arrayBuffer();
-      if (ws && ws.readyState === WebSocket.OPEN){
-        ws.send(buf);
-        log(`📤 Sent audio (${buf.byteLength} bytes)`);
-      } else {
-        log("⚠️ Socket not open when sending");
+function handleServerMessage(data) {
+  if (typeof data === "string") {
+    // JSON event
+    try {
+      const ev = JSON.parse(data);
+      if (ev.type === "info") log(`ℹ️ ${ev.message}`);
+      if (ev.type === "response.text.delta" && ev.delta) {
+        // Text streaming (if provided by model)
+        chat("ai", ev.delta);
       }
-      stopMic();
-    };
-    mediaRecorder.start();
-    isRecording = true;
-    btn.classList.add('on');
-    log("🎙️ Recording...");
-  } catch(err){
-    log("🚫 Mic error: " + err.message);
+      if (ev.type === "transcript" && ev.text) {
+        chat("ai", ev.text);
+      }
+      // Some models deliver audio frames inside JSON as base64
+      if (ev.type === "response.audio.delta" && ev.audio) {
+        playPCM16(base64ToBytes(ev.audio));
+      }
+    } catch (e) {
+      log("📩 " + data.substring(0,180));
+    }
+  } else if (data instanceof ArrayBuffer) {
+    // Treat as PCM16 frame from upstream
+    playPCM16(new Uint8Array(data));
   }
 }
 
-function stopMic(){
-  if (stream){
-    stream.getTracks().forEach(t=>t.stop());
-    log("🎧 Mic stopped");
-    stream = null;
-  }
-}
+async function startRecording() {
+  if (!ws || ws.readyState !== 1) await connect();
 
-function stopRecording(){
-  if (mediaRecorder && isRecording){
-    mediaRecorder.stop();
-    isRecording = false;
-    btn.classList.remove('on');
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  audioChunks = [];
+  mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm; codecs=opus" });
+
+  mediaRecorder.ondataavailable = e => {
+    if (e.data && e.data.size > 0) {
+      e.data.arrayBuffer().then(buf => ws.send(buf));
+    }
+  };
+  mediaRecorder.onstart = () => { isRecording = true; micBtn.classList.add("active"); log("🎙️ Recording started"); };
+  mediaRecorder.onstop = () => {
+    isRecording = false; micBtn.classList.remove("active");
     log("🛑 Recording stopped");
-  } else {
-    log("ℹ️ Not recording");
+    // Let the assistant speak/respond now (no special message needed; audio already streamed)
+  };
+
+  mediaRecorder.start(250); // chunk every 250ms
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
   }
 }
 
-btn.addEventListener('click', ()=>{
-  log("👉 Button pressed");
-  if (!isRecording) startRecording();
-  else stopRecording();
-});
+async function toggleMic() {
+  try {
+    if (!isRecording) {
+      await startRecording();
+    } else {
+      stopRecording();
+    }
+  } catch (e) {
+    log("⚠️ Mic error: " + (e.message || e));
+  }
+}
 
-window.onload = () => {
-  log("🚀 Auto connecting...");
-  connect();
-};
+micBtn.addEventListener("click", toggleMic);
+
+// ===== Playback (PCM16 mono 24kHz expected) =====
+function ensureCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+  }
+}
+function playPCM16(bytes) {
+  ensureCtx();
+  const samples = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength/2));
+  const float32 = new Float32Array(samples.length);
+  for (let i=0;i<samples.length;i++) float32[i] = samples[i] / 32768.0;
+  const buf = audioCtx.createBuffer(1, float32.length, 24000);
+  buf.copyToChannel(float32, 0);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(audioCtx.destination);
+  src.start();
+}
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// Auto-connect once to be ready
+connect().catch(()=>{});
