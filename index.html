@@ -1,19 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Chat (Duplex)</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1>🎙️ Voice Chat</h1>
-    <div class="status" id="status">Idle</div>
-    <button id="micBtn" class="mic">Tap to talk</button>
-    <div id="log" class="log"></div>
-    <div id="chat" class="chat"></div>
-  </main>
+  <div class="container">
+    <h1>🎙️ Voice Chat (Duplex)</h1>
+    <button id="talkBtn" class="mic-btn">Tap to Talk</button>
+    <p id="status">Idle</p>
+    <pre id="log"></pre>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
