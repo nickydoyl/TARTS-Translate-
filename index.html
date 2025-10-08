@@ -1,20 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Realtime Duplex Chat</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voice Chat (Duplex v2)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="avatar"></div>
-    <div class="controls">
-      <button id="startBtn" class="btn">🎙️ Start Conversation</button>
-      <button id="stopBtn" class="btn danger" disabled>❌ End Conversation</button>
-    </div>
-    <div id="log" class="log"></div>
-  </div>
-  <script src="main.js"></script>
+  <main>
+    <h1>🎙️ Voice Chat</h1>
+    <p id="status">Connecting…</p>
+
+    <button id="talkBtn" disabled>Tap to talk</button>
+
+    <section id="logBox" aria-live="polite"></section>
+  </main>
+
+  <script>
+    window.APP_CONFIG = {
+      workerWs: "wss://broad-hat-1325.nickydoyl.workers.dev"
+    };
+  </script>
+  <script src="app.js"></script>
 </body>
 </html>

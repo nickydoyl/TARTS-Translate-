@@ -1,69 +1,49 @@
-body {
-  background: #1f1f1f;
-  color: #f5f5f5;
-  font-family: system-ui, sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  margin: 0;
-}
 
-.container {
-  text-align: center;
+:root {
+  --bg: #0e0f13;
+  --panel: #151720;
+  --text: #e8eef7;
+  --muted: #9fb0c8;
+  --accent: #29a3ff;
+  --accent-2: #6cf;
+  --danger: #ff6666;
+  --ok: #40d07d;
+  --warn: #ffcc66;
 }
+* { box-sizing: border-box; }
+html,body { height:100%; margin:0; background:var(--bg); color:var(--text); font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+main { max-width: 760px; margin: 32px auto; padding: 0 16px; }
+h1 { margin: 8px 0 2px; font-weight: 700; }
+#status { color: var(--muted); margin: 0 0 24px; }
 
-.avatar {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  margin: 0 auto 40px;
-  background: radial-gradient(circle at 40% 40%, #cde8ff, #0073ff);
-  box-shadow: 0 0 30px rgba(0, 115, 255, 0.4);
-  transition: transform 0.3s;
-}
-
-.avatar.active {
-  transform: scale(1.1);
-  box-shadow: 0 0 50px rgba(0, 115, 255, 0.8);
-}
-
-.controls {
-  margin-bottom: 20px;
-}
-
-.btn {
-  background: #007bff;
-  color: white;
+#talkBtn {
+  display:block;
+  margin: 24px auto;
+  width: 180px; height: 180px; border-radius: 999px;
   border: none;
-  padding: 12px 24px;
-  margin: 5px;
-  border-radius: 25px;
+  color: white; font-size: 20px; font-weight: 700;
+  background: radial-gradient(120px 120px at 50% 45%, var(--accent), #1573c4);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 24px rgba(41,163,255,.45);
   cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s;
+  transition: transform .1s ease, filter .2s ease, background .2s ease;
+}
+#talkBtn:active { transform: scale(.98); }
+#talkBtn.recording {
+  background: radial-gradient(120px 120px at 50% 45%, #ff5e5e, #b51b1b);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 24px rgba(255,80,80,.45);
 }
 
-.btn:hover { background: #0056b3; }
-
-.btn.danger {
-  background: #ff4f4f;
+#logBox {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px 14px;
+  min-height: 140px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-.btn.danger:hover {
-  background: #c33;
-}
-
-.log {
-  background: #111;
-  color: #0f0;
-  font-family: monospace;
-  text-align: left;
-  padding: 10px;
-  margin-top: 20px;
-  height: 150px;
-  width: 350px;
-  overflow-y: auto;
-  border-radius: 10px;
-  border: 1px solid #333;
-}
+.log   { color: var(--text); }
+.ok    { color: var(--ok); }
+.warn  { color: var(--warn); }
+.err   { color: var(--danger); }
+.ai    { color: var(--accent-2); }
